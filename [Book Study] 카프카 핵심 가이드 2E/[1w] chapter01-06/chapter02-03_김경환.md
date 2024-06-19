@@ -127,3 +127,6 @@ docker-compose up -d
     test message 1
     test message 2
     ~~~
+
+
+### 주요 브로커 옵션
