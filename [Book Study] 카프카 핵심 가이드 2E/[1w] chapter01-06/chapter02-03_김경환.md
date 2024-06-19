@@ -130,7 +130,6 @@ docker-compose up -d
 
 
 ### 주요 브로커 옵션
-
 파라미터 | 용도 | msk 지원 여부 | 기본값
 --------- | --------- | --------- | ---------
 log.dirs | 별도의 로그 세그먼트 저장 디렉토리 지정 | X | false
@@ -140,8 +139,7 @@ auto.leader.rebalance.enable | 백그라운드 프로세스가 토픽에 리더 
 delete.topic.enable | 토픽 삭제 방지 | O | false
 
 ### 주요 토픽 옵션
-
 파라미터 | 용도 | msk 지원 여부 | 기본값
 --------- | --------- | --------- | ---------
-num.partitions | 파티션 수 - 처리량에 따라 설정이 필요 너무 많은 경우( IOPS, 크기 ) 너무 적은 경우(처리량)를 고려해 작업이 필요 | O | 1 
-
+num.partitions | 파티션 수 - 처리량에 따라 설정이 필요 너무 많은 경우( IOPS, 파티션 크기 ) 너무 적은 경우( 처리량 )를 고려해 작업이 필요 | O | 1 
+default.replication.factor | min.insync.replicas 값보다 최소 1이상 크게 잡아줄것을 권장|O |2
