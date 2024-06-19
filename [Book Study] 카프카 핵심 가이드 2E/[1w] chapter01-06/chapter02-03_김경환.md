@@ -102,6 +102,8 @@ networks:
     driver: bridge
 ~~~
 
+* 도커 컴포즈 런
+
 ~~~shell
 docker-compose up -d
 ~~~
