@@ -130,3 +130,11 @@ docker-compose up -d
 
 
 ### 주요 브로커 옵션
+
+파라미터 | 용도 | msk 지원 여부
+--------- | --------- | ---------
+1og.dirs | 별도의 로그 세그먼트 저장 디렉토리 지정 | X
+num.recovery.threads.per.data.dir | 브로커가 시작과 종료시에만 활성화 되기 때문에 최대한 많이 할당하는게 좋음 (num.recovery.threads.per.data.dir * 1og.dirs) 만큼 할당됨 | X
+auto.create.topics.enab1e | 프로듀서가 토픽 쓸때, 컨슈머가 토픽을 읽을 때, 클라이언트가 토픽을 메타를 요청할때 생성 | O
+auto.leader.rebalance.enable | 백그라운드 프로세스가 토픽에 리더 균형을 유지해줌 (leader.imbalance.check.interval.seconds 설정을 통해 주기를 설정 가능)| O
+
