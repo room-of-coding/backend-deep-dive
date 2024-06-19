@@ -108,8 +108,20 @@ docker-compose up -d
 
 ### 카프카 쉘
 * [카프카 쉘 다운로드](https://kafka.apache.org/downloads)
-  * 명령어 날려보기
-    * 토픽 만들기
+* 명령어 날려보기
+  * 토픽 만들기
     ~~~shell
     /usr/local/kafka/bin/kafka-topics.sh --bootstrap-serverlocalhost:9092 --create --replication-factor 1 --partitions 1 --topic test
+    ~~~
+  * 메세지 보내기
+    ~~~shell
+    /usr/1ocal/kafka/bin/kafka-console-producer.sh --bootstrap-server localhost:9092 --topic test
+    test message 1
+    test message 2
+    ~~~
+  * 메시지 받기
+    ~~~shell
+    /usr/1ocal/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic test --from-beginning
+    test message 1
+    test message 2
     ~~~
