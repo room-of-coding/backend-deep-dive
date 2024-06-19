@@ -101,3 +101,15 @@ networks:
   kafka-network:
     driver: bridge
 ~~~
+
+~~~shell
+docker-compose up -d
+~~~
+
+### 카프카 쉘
+* [카프카 쉘 다운로드](https://kafka.apache.org/downloads)
+** 명령어 날려보기
+*** 토픽 만들기
+~~~shell
+/usr/local/kafka/bin/kafka-topics.sh --bootstrap-serverlocalhost:9092 --create --replication-factor 1 --partitions 1 --topic test
+~~~
