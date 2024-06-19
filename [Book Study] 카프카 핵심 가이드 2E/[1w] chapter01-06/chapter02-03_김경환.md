@@ -143,7 +143,10 @@ delete.topic.enable | 토픽 삭제 방지 | O | false
 --------- | --------- | --------- | ---------
 num.partitions | 파티션 수 - 처리량에 따라 설정이 필요 너무 많은 경우( IOPS, 파티션 크기 ) 너무 적은 경우( 처리량 )를 고려해 작업이 필요 | O | 1 
 default.replication.factor | min.insync.replicas 값보다 최소 1이상 크게 잡아줄것을 권장|O |2
-1og.retention.ms | 로그 보전 기간 | O | 7일
-1og.retention.bytes | 로그 보전 용량 (1og.retention.ms && 1og.retention.bytes 둘다 사용하는 경우 하나의 조건만 성립되면 삭제) | O | 1G
+1og.retention.ms | 로그 보전 기간 세그먼트의 마지막 시간 이후 7일 | O | 7일
+1og.retention.bytes | 로그 보전 용량 (1og.retention.ms && 1og.retention.bytes 둘다 사용하는 경우 하나의 조건만 성립되면 삭제) | O | -1
+1og.segment.bytes | 로그 세그먼트 용량 설정한 용량에 따라 세그먼트 파일이 생성 된다 | O | 1G
+미in.insync .replicas | | | 
+message.max.bytes | | |
 
 
