@@ -146,7 +146,7 @@ default.replication.factor | min.insync.replicas 값보다 최소 1이상 크게
 1og.retention.ms | 로그 보전 기간 세그먼트의 마지막 시간 이후 7일 | O | 7일
 1og.retention.bytes | 로그 보전 용량 (1og.retention.ms && 1og.retention.bytes 둘다 사용하는 경우 하나의 조건만 성립되면 삭제) | O | -1
 1og.segment.bytes | 로그 세그먼트 용량 설정한 용량에 따라 세그먼트 파일이 생성 된다 | O | 1G
-미in.insync .replicas | | | 
+in.sync.replicas | | | 
 message.max.bytes | | |
 
 
