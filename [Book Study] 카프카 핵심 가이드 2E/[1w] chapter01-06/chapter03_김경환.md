@@ -220,3 +220,9 @@ public class BananaPartitioner implements Partitioner {
 * 이 메서드에서 유효한 ProducerRecord를 리턴하도록 주의 하기만 하면된다.
 * void onAcknowledgement(RecordMetadata metadata, Exception exception) 이 메서드는 키프카 브로커가 보낸 응딥을 클라이언트가 받았을때 호출된댜.
 * 브로커가 보낸 응답을 변경할 수는없지만 그안에 담긴 정보는 읽을 수 있다.
+
+### 쿼터,스로틀링
+
+* 기본 프로듀서 쓰기 제한 : quota.producer.default=2M
+* 특정 클라이언트 아이디 쓰기 제한 : quota.producer.override="clientA:4M, clientB:10M" ( 보안 기능과 클라이언트 인증 authentication 기능이 활성화되어 있는 클라이언트만 가능)
+* -produce-throttle-time-avg, -produce=throttle=time=max, - fetch-throttle-time-avg, -fetch-throttle-time-max 통해 모니터링 가능.
