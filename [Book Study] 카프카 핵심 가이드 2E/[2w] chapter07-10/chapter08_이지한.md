@@ -71,7 +71,22 @@ enable.idempotence=true
 
 ### 트랜잭션은 어떻게 '정확히 한 번'을 보장하는가?
 ![image](https://github.com/room-of-coding/backend-deep-dive/assets/39042837/e26f921e-93d2-4f00-89e3-e72c38d40806)
+* 트랜잭션적 프로듀서를 사용해야함.
+* 일반 프로듀서와 트랜잭션적 프로듀서 차이점
+  * transactional.id 설정
+  * initTransactions() 호출해서 초기화
+* transactional.id는 재시작 하더라도 값이 유지됨.
+* 이미 존재하는 transactional.id 프로듀서가 initTransactions()을 다시 호출하면 이전에 쓰던 producer.id 값을 할당해줌.
+
+* 좀비펜싱
+  * 프로듀서가 초기화를 위해 initTransaction()을 호출하면 transactional.id에 에포크 값을 증가시킴.
+  * 동일한 transactional.id를 가지더라도, 에포크 값이 낮은 프로듀서가 요청을 보낼 경우 FencedProducer 에러 발생
 
 ![image](https://github.com/room-of-coding/backend-deep-dive/assets/39042837/c430f29b-7c0e-45bd-b0fd-cc53cdf4ee2a)
 
+* 컨슈머에 격리수준이 올바르게 설정되어 있지 않은 경우, 기대하는 '정확히 한 번' 보장이 이루어지지 않음.
+* 컨슈머에 isolation.level 설정하기
+  * read_committed
+  * read_uncommitted (default)
 
+### 트랜잭션으로 해결할 수 없는 문제들
