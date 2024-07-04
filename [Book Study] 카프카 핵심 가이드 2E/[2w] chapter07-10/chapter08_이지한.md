@@ -63,4 +63,15 @@ enable.idempotence=true
 * 중복 처리 발생.
 
 2. 좀비 애플리케이션에 의해 발생하는 재처리
-* 
+* 애플리케이션이 레코드 배치를 읽어온 직후 바로 연결이 끊어진 상황.
+* 1번과 동일하게 새로운 컨슈머가 할당받아 처리 후
+* 멈췄던 애플리케이션이 다시 살아남.
+* 마지막으로 읽어왔던 레코드 배치를 처리하느라 중복 발생.
+  * 새로 카프카를 폴링하거나, 하트비트로 자기가 죽었다는걸 판정받기 전까지 실행 가능.
+
+### 트랜잭션은 어떻게 '정확히 한 번'을 보장하는가?
+![image](https://github.com/room-of-coding/backend-deep-dive/assets/39042837/e26f921e-93d2-4f00-89e3-e72c38d40806)
+
+![image](https://github.com/room-of-coding/backend-deep-dive/assets/39042837/c430f29b-7c0e-45bd-b0fd-cc53cdf4ee2a)
+
+
