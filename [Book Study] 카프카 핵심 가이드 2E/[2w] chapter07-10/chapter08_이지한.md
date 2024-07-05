@@ -93,10 +93,24 @@ enable.idempotence=true
 
 1. 스트림 처리에 있어서의 부수 효과
 * 이메일 발송, REST API 호출, 파일 쓰기 등의 외부 작업의 중복은 카프카 트랜잭션이 처리할 수 없음.
-
 2. 카프카 토픽에서 읽어서 DB에 쓰는 경우
 * 하나의 트랜잭션에서 외부 디비에 결과를 쓰고 카프카에는 오프셋을 커밋할 수 있도록 하는 매커니즘은 없음.
-
 3. DB에서 읽고, 카프카에 쓰고, 다시 다른 DB에 쓰기
-* 
+4. 한 클러스터에서 다른 클러스터로 복제
+5. 발행/구독 패턴
+* 오프셋 커밋 로직에 따라 컨슈머들이 메시지를 한 번 이상 처리하게 되는 경우
+* 따라서, read_commited 설정이 반드시 되어야 함.
 
+### 트랜잭션 사용법
+* 카프카 스트림즈
+  *  processing.guarantee
+    *  exactly_once 이나 exactly_once_beta
+
+* 카프카
+  * ```java
+    producerProps.put(ProducerConfig.TRANSACTIONAL_ID_CONFIG, transactionalld);
+    consumerProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");'
+    consumerProps.put(ConsumerConfig.ISOLATION_LEVEL_CONFIG, "read_committed");
+    ```
+
+### 트랜잭션 ID와 펜싱
