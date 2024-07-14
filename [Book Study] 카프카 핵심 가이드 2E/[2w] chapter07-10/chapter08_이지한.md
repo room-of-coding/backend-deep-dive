@@ -1,3 +1,81 @@
+### 멱등적 프로듀서
+
+<img width="815" alt="image" src="https://github.com/user-attachments/assets/6f273952-1a70-4cf5-8712-6a7a29d07b48">
+
+* m1, m2, m1, m2, m3 -> 중복 발생
+* **enable.idempotence=true**
+* producer ID 요청 후, 해당 pid와 레코드 별 seq 넘버를 추가해서 중복 메시지를 없애고 순서 보장
+
+### 트랜잭션 필요 상황 가정
+
+<img width="799" alt="image" src="https://github.com/user-attachments/assets/b35fa84a-b1b4-4114-89b5-33a5e24467b7">
+
+* '이체' 애플리케이션
+* Alice -> Bob 에게 이체하는 상황
+* 전송 토픽 이벤트를 가져와서 출력 토픽 2개에 레코드를 쌓는다. (Alice -10$ 인출, Bob +10$ 입금)
+* 위의 트랜잭션이 완료되어야 오프셋 커밋이 찍힌다.
+
+### 트랜잭션 없이 시스템 장애 발생
+
+<img width="810" alt="image" src="https://github.com/user-attachments/assets/cc416b67-ee5e-4254-9577-7780d236be23">
+
+* Alice -> -10$ 인출 시점에 애플리케이션이 실패한다고 가정
+* 애플리케이션 실패로 오프셋 커밋이 되지 않고, consumer가 전송 토픽을 다시 읽게되는 중복과정이 발생
+* 결과적으로 Alice -> -10$ **이벤트가 2번 발생**함.
+
+### 트랜잭션 적용 후 시스템 장애
+
+<img width="810" alt="image" src="https://github.com/user-attachments/assets/4cd9f68d-55da-49d2-95af-4ee959cff6a3">
+
+* 고유한 **transactional.id** 를 부여
+* 이 애플리케이션 시작 시점에, 트랜잭션을 조정할 **트랜잭션 코디네이터**를 찾음.
+* **__transaction_state_topic** 이라는 내부 토픽이 존재함
+* 코디네이터가 결정되면, 코디네이터는 트랜잭션 애플리케이션에 대한 고유 produce ID, epoch를 생성 하여 애플리케이션에 전달
+* 출력 토픽으로 이벤트를 쓰기전에 트랜잭션 애플리케이션은 코디네이터한테 대상 파티션을 알려줘야함.
+
+<img width="813" alt="image" src="https://github.com/user-attachments/assets/c4c42a0c-1d21-452e-af26-c92264f51aa8">
+
+* 코디네이터는 이 트랜잭션의 일부가 될 파티션을 내부 토픽에 지속적으로 저장
+* 이 정보가 저장되면, 애플리케이션은 출력 토픽에 이벤트를 작성할 수 있음.
+
+<img width="813" alt="image" src="https://github.com/user-attachments/assets/ae049f90-4415-4a35-9603-7c92197d2728">
+
+* 이 시점에 아까와 같이 이벤트가 실패했다고 가정
+* 처음으로 트랜잭션 코디네이터를 통해 producer ID를 요청함.
+* 코디네이터는 이전 인스턴스에서 보류중인 트랜잭션이 있음을 알고있음.
+* 그리고 동일한 transactional.id를 가진 producer ID를 등록하려 했다는 것을 보고 새로운 인스턴스네! 라고 파악
+* 트랜잭션 코디네이터가 먼저 할 일은 이전 인스턴스의 보류 중인 모든 트랜션을 중단해야함.
+* 따라서, **내부 트랜잭션 로그에 중단 마커 (A)** 를 추가
+* 그리고, 트랜잭션이 데이터를 작성했던 **각 파티션에도 중단 마커 (A)** 를 추가
+* 위 작업이 완료된 후, 코디네이터는 producer ID의 **epoch를 증가** 시킨다 **pid e0 -> pid e1**
+  * epoch를 증가시켜서 이전 인스턴스 epoch는 차단함 
+* 이제 consumer가 출력 토픽을 읽으려고 하면 중단 이벤트임을 인지하고 무시하게됨
+
+### 트랜잭션 적용 후 시스템 성공
+
+<img width="821" alt="image" src="https://github.com/user-attachments/assets/f88345e7-0faa-4a3d-b4c2-bec459586983">
+
+* 입력 토픽까지 읽고, 그 다음 출력 토픽에 쓰기전에 추가해야하는 파티션 세트를 코디네이터에게 알려줘야함.
+* 위 경우에는 인출 파티션(P0), 입금 파티션(P1), 내부 오프셋 토픽 파티션(P7) 을 알려주게됨
+* 코디네이터는 이 3개의 파티션을 트랜잭션 로그에 기록함.
+* 이제 애플리케이션은 위의 3개의 파티션에 레코드를 쓸 수 있게됨.
+* 레코드 쓰기 작업이 완료되면, 애플리케이션은 트랜잭션 코디네이터에게 커밋 요청을 보냄 (커밋해줘!)
+* 트랜잭션 코디네이터가 **내부 토픽에 커밋 마커 (C)** 를 찍음
+* 내부 커밋 마커가 찍힌 이후, 나머지 **3개의 출력 토픽에 동일한 커밋 마커를 추가** 함
+* 이 시점에 커밋 정보는 **read_committed** 모드로 읽는 **consumer 에게 노출** 된다.
+
+### read_commited 모드 알아보기
+<img width="817" alt="image" src="https://github.com/user-attachments/assets/fda12566-f867-4751-9cc7-b8c6ba6a717a">
+
+*  High watermark = 66
+*  오프셋 64인 레코드는 아직 커밋되지 않은 상태라 보류중 (커밋 또는 중단 마커 없음)
+*  브로커는 마지막 안정 오프셋 (last stable offset, LSO)를 알고있음
+*  LSO : 첫 번째 열려있는 보류 중인 트랜잭션의 오프셋 (64)
+*  LSO 이전의 오프셋은 모두 상태가 결정되었다고 할 수 있음 -> consumer에게 노출 가능함.
+*  따라서, 응답을 줄 때 LSO 이전의 오프셋과 중단 마커를 무시하라는 메타데이터 정보를 추가적으로 전달
+  
+---
+
 # chapter 08. '정확히 한 번' 의미 구조
 
 ## 정확히 한 번
