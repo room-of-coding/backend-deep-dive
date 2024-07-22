@@ -1,0 +1,339 @@
+# 13. 카프카 모니터링하기
+
+## 13.1 지표 기초
+
+### 13.1.1 지표는 어디에 있는가?
+
+카프카의 모든 지표는 JMX(Java Management Extensions) 인터페이스를 통해서 사용할 수 있다.
+
+- check_jmx, jmxtrans와 같은 JMX 인터페이스에 접속하는 프로그램이 있음
+- Jolokia, MX4J 등은 카프카 프로세스에서 직접 실행되는 JMX 에이전트이다
+
+**JMX 포트 찾기**
+
+주키퍼에 저장되는 브로커에 대한 정보는 /brokers/ids/{브로커 id}에 JSON 형식으로 저장된다. 여기에 hostname, jmx_port가 포함된다.
+
+- 보안상의 이유로 원격 JMX는 기본적으로 꺼져있다. JMX를 통하면 조회 뿐만 아니라 코드 실행도 가능하기 때문이다.
+
+**지표 출처**
+
+| 종류 | 설명 |
+| --- | --- |
+| 애플리케이션 지표 | 카프카 자체의 JMX에서 나온 지표 |
+| 로그 | 카프카 로그. 텍스트나 구조화되어있어서 데이터 추가 처리 필요 |
+| 인프라스트럭처 지표 | 카프카의 앞 단에 위치하면서, 내가 제어할 수 있는 시스템의 지표 (ex 로드밸런서) |
+| 특수 클라이언트 지표 | 카프카 모니터와 같은 외부 모니터링 툴 등에서 나오는 제어 가능한 클라이언트의 지표 |
+| 일반 클라이언트 지표 | 카프카 클러스터에 접속한 카프카 클라이언트에서 나온 지표 |
+
+### 실습
+
+[JConsole로 JMX Bean 모니터링하기]
+# **1. jconsole로 연결**
+
+1. docker로 kafka를 실행하는 경우, 아래처럼 rmi와 jmx 서버 포트를 설정해주고 컨테이너를 띄운다.
+
+```java
+  // zookeeper 설정 내용 생략(zookeeper-local)
+  
+  kafka-local:
+    image: confluentinc/cp-kafka:latest
+    depends_on:
+      - zookeeper-local
+    ports:
+      - "29092:29092"
+      - "9999:9999"
+    environment:
+      // 기타 환경 설정 중략...
+      JMX_PORT: 9999
+      JMX_HOSTNAME: localhost
+      KAFKA_JMX_OPTS: "-Djava.rmi.server.hostname=127.0.0.1 -Dcom.sun.management.jmxremote=true -Dcom.sun.management.jmxremote.rmi.port=9999  -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false"
+```
+
+Ref.) https://docs.confluent.io/platform/current/kafka/monitoring.html
+
+
+
+1. jconsole을 terminal에서 실행한다. 로컬 컴퓨터에 자바가 설치되어있다면 jconsole 명령어로 바로 실행이 가능하다
+
+```java
+$ jconsole
+```
+
+1. docker로 실행하였으므로, Remote Process로 RMI 주소인 localhost:9999로 접속한다. insecure connection이라는 경고가 뜨는데, 무시하고 접속한다.
+
+
+
+Mbeans 항목에 보면 kafka 관련 항목들을 볼 수 있다
+
+
+# 2. visualVM 으로 연결
+
+1번과 컨테이너 및 포트 설정은 똑같다. 다만 visualVM은 다른 포트에서 실행 중인 producer, consumer 등의 내용들도 함께 볼 수 있어서 더 좋은 것 같다.
+
+1. visualVM을 설치한다.
+
+https://visualvm.github.io/
+
+1. MBeans를 보기 위해 Tools > Plugins > Available Plugins에서 VisualVM-MBeans 플러그인을 설치한다.
+
+
+
+1. 홈 화면으로 나와서 Applications → Local 부분에 Add JMX Connection 버튼을 누르거나, Local에 오른쪽 마우스를 클릭해서 Add JMX Connection을 한다.
+
+
+
+1. Connection 부분에 [localhost:9999](http://localhost:9999) 로 지정 후 OK
+
+
+
+1. 카프카 서버의 MBeans 항목들을 확인할 수 있다. 서두에 말한 것처럼 아래 그림상 1, 2번은 로컬에서 실행 중인 Producer, Consumer 애플리케이션이다. 여기서 Producer, Consumer 관련 MBeans 정보들도 확인할 수 있다. 
+
+
+
+  
+### 13.1.2 어떤 지표가 필요한가?
+
+경보 vs 디버깅
+
+경보를 위한 지표 수집은 몇 시간이나 며칠 정도의 짧은 기간 동안을 기준으로 삼는다. 문제에 대응하는데 걸리는 시간보다 짧은 경우에 유용하다. 즉 해결하는데 3일 걸릴 문제라면 3일보다는 짧게 경보가 오도록 설정해야한다.
+
+디버깅은 일정 시간동안 문제의 원인을 자주 진단하던가 아니면 복잡한 문제여서 깊이 봐야하는 경우에 설정한다. 시간 범위가 긴 경향이 있으므로 데이터가 수집된 뒤 며칠 혹은 몇 주가 지난 뒤에도 사용이 가능해야한다.
+
+## 13.2 서비스 수준 목표
+
+### 13.2.1 서비스 수준 정의
+
+`서비스 수준 목표(service-level objective, SLO)`: 서비스 수준 한계(service-level threshold, SLT)라고도 불리며 서비스 수준 지표(service-level indicator, SLI)에 목표값을 결합한 것.
+
+SLI는 예를 들어 웹 서버에서 2xx, 3xx, 4xx 응답을 받은 요청의 비율 같은 것이라 할 수 있다. 이때 SLO는 “7일간 웹 서버에 대한 요청 중 99%가 2xx, 3xx 또는 4xx를 받아야한다.” 같은 식으로 표현한다.
+
+이를 기반으로 협약하는 것을 서비스 수준 협약(service-level agreement, SLA)이라고 한다. “만약 SLO 달성이 안되면 모든 금액을 환불해준다.” 등으로 표현된다.
+
+### 13.2.2 좋은 서비스 수준 지표를 위해서는 어떤 지푯값을 써야 하는가?
+
+**SLI의 종류**
+
+| 종류 | 설명 |
+| --- | --- |
+| 가용성(availability) | 클라이언트가 요청을 보내고 응답을 받을 수 있는가 |
+| 지연(latency) | 응답이 얼마나 빨리 리턴되는가? |
+| 질(quality) | 응답의 내용이 적절한가? |
+| 보안(security) | 요청과 응답이 보호되며, 권한이나 암호화 측면이 적절한가? |
+| 처리량(throughput) | 클라이언트가 충분한 속도로 데이터를 받을 수 있는가? |
+
+### 13.2.3 경보에 SLO를 사용하기
+
+SLO는 1주일 정도의 장기간을 기준으로 할 때 가장 좋다. 소진율(burn rate) 개념으로 살펴보는 것이 좋다. 
+
+예를 들어 SLO가 전체 요청의 99.9%가 10ms 안에 응답이 되어야한다고 가정했다고 치자. 그럼 일주일에 100만 개 요청을 받는 경우 매주 1천 개까지는 더 늦게 응답을 받아도 된다는 것이 된다. 그리고 화요일 쯤 소진율이 시간당 2%이고 경보가 울린다면, 이 문제를 해결하여 소진율을 0.4%로 낮추면 남은 1주일 기간 동안은 소진율 0.1%를 맞출 수 있도록 하는 것이다.
+
+---
+
+## 13.3 카프카 브로커 지표
+
+### 13.3.1 클러스터 문제 진단하기
+
+- 단일 클러스터 관련 문제
+
+대부분의 문제는 카프카 클러스터 안에서 특정 파티션 등에 요청이 몰려서 발생하는 문제다. 외부 툴을 사용해서 클러스터의 균형을 항상 유지하는 것을 권장하며, `크루즈 컨트롤`  같은 툴을 추천한다. 클러스터를 계속 모니터링하다가 그 안의 파티션을 리밸런싱해준다.
+
+- 컨트롤러에 의해 발생한 문제
+
+브로커는 정상인데 레플리카는 오프라인, 토픽 생성이 작동이 안됨 등 이상한 방식으로 컨트롤러가 작동하면서 발생한다. 어려운 문제지만, 활성 컨트롤러 수나 컨트롤러 큐 크기 같은 지표를 모니터링하여 감지할 수도 있다.
+
+### 13.3.2 불완전 복제 파티션 다루기
+
+중요 지표 ⭐ 불완전 복제 파티션은 리더를 따라오지 못하면 팔로워 레플리카의 수를 나타낸다.
+
+| 지표 이름 | 값 |
+| --- | --- |
+| JMX MBean | kafka.server:type=ReplicaManager, name=UnderReplicatedPartitions |
+| 값의 범위 | 0 이상 Integer |
+
+- 불완전 복제 파티션의 수가 오르락 내리락 하거나, 수는 일정한데 내려간 브로커가 없는 경우
+
+클러스터의 성능 문제가 대체적인 원인이다. 특정 브로커에 몰려있다면 그 브로커 문제일 가능성이 높다. 한 가지 방법은 클러스터 내 `불완전 복제 파티션의 목록을 뽑은 뒤, 공통되는 브로커가 있는지 살펴보는 것이다.`
+
+```bash
+[kafka-topics.sh](http://kafka-topics.sh) —botstrap-server {서버명} —describe —under-replicated
+```
+
+공통으로 나타나는 브로커가 있다면 그 브로커가 문제일 가능성이 높고, 그런 브로커가 없다면 클러스터 수준의 문제일 가능성이 높다.
+
+- 부하 불균형 문제인 경우 확인 대상 목록: 각 브로커가 균일한 수를 보이는지 확인한다.
+    - 파티션 개수
+    - 리더 파티션 수
+    - 토픽에 초당 들어오는 메시지
+    - 토픽에 초당 들어오는 바이트
+    - 토픽에서 초당 나가는 바이트
+
+- 자원 고갈의 문제인 경우
+    - CPU 사용률
+    - 인바운드 네트워크 속도
+    - 아웃바운드 네트워크 속도
+    - 평균 디스크 대기 시간
+    - 디스크 평균 활용률
+
+- 호스트 수준 문제: 특정 클러스터만 이상한 경우 → AWS MSK를 사용한다면 직접 볼 일은 없을 것 같음
+    - 하드웨어 장애
+    - 네트워킹
+    - 다른 프로세스와 충돌
+    - 로컬 구성의 차이
+
+### 13.3.3 브로커 지표
+
+- 활성 컨트롤러 수(kafka.controller:type=KafkaController, name=ActiveControllerCount, 0 또는 1)
+
+현재 브로커가 컨트롤러의 역할을 맡고 있다면 1의 값으로 표시됨
+
+- 컨트롤러 큐 크기(kafka.controller:type=ControllerEventManager, name= EventQueueSize, 0이상 Integer)
+
+현재 컨트롤러에서 브로커의 처리를 기다리고 있는 요청 수. 순간적으로 튈 수는 있지만, 계속해서 증가하거나 높아진 상태로 유지된다면 컨트롤러 역할을 하고 있는 컨트롤러를 끄고 다른 브로커로 컨트롤러를 옮겨야 한다.
+
+- 요청 핸들러 유휴 비율(kafka.server:type=KafkaRequestHandlerPool, name=RequestHandlerAvgIdlePercent, 0이상 1이하 Float)
+
+카프카는 클라이언트의 요청을 처리하기 위해서 `네트워크 스레드 풀`, `요청 핸들러 스레드 풀` 2개를 사용함. 요청 핸들러 스레드는 메시지를 디스크에 쓰거나 읽어 오는 것을 포함한 클라이언트의 요청을 처리하는 역할. 따라서 부하가 커질수록 이 스레드풀에 영향이 간다. 유휴 비율이므로 값이 낮을수록 브로커에 부하가 많이 걸려있다는 의미
+
+- 경험적으로 20%이하면 잠재적 문제, 10% 이하면 성능문제가 진행형
+- 사유: 스레드 수가 충분하지 않음 | 스레드들이 요청별로 쓸데없는 작업을 할 경우
+
+- 전 토픽 바이트 인입(kafka.server:type=BrokerTopicMetrics, name=BytesInPerSec)
+
+브로커가 프로듀서 클라이언트로부터 얼마나 많은 메시지 트래픽을 받는지를 추적하는데 유용. OneMinuteRate는 특정 시점의 이상점을 보여주며, MeanRate는 잘 안변하고 FiveMinute, FifteenMinuteRate가 중간 정도의 관점을 제공함
+
+- 전 토픽 바이트 유출(kafka.server:type=BrokerTopicMetrics,name=BytesOutPerSec)
+
+인입과 마찬가지로 트래픽의 전체적인 성장세를 보여주는 또 다른 지표. 유출 바이트 속도에는 레플리카에 복사하는 트래픽도 포함됨에 유의. 토픽 복제 팩터가 2면 컨슈머 클라이언트가 없더라도 인입, 유출 속도가 같게 된다.
+
+- 전 토픽 메시지 인입(kafka.server:type=BrokerTopicMetrics, name=MessageInPerSec)
+
+메시지 크기와는 무관하게 초당 들어오는 메시지 수만 보여줌. 바이트 인입 지표와 함께 트래픽 성장을 보여주는 지표로써 유용함
+
+- 파티션 수(kafka.server:type=ReplicaManager, name=PartitionCount)
+
+잘 변하지 않지만, 자동 토픽 생성 기능이 켜져 있는 클러스터라면 이 값을 모니터링하는 것이 중요. 토픽 생성이 운영자의 손을 벗어나기 때문.
+
+- 리더 수(kafka.server:type=ReplicaManager, name=LeaderCount)
+
+브로커가 현재 리더를 맡고 있는 파티션의 개수를 보여줌. 주키퍼 세션이 만료되거나 하는 등의 이유로 브로커가 원래 맡고 있던 파티션의 리더 역할을 내려놓는 경우가 있고, 해결되더라도 원래대로 복구되지 않는 경우가 있어서 정기적으로 확인하고 경보도 걸어놓는 것을 추천함
+
+- 오프라인 파티션(kafka.controller:type=KafkaController, name=OfflinePartitionsCount)
+
+중요 지표 ⭐ 컨트롤러를 맡고 있는 브로커에서만 제공되고, 다른 브로커에서는 모두 0 값을 가짐. 현재 리더가 없는 파티션의 개수를 보여준다. 리더가 없는 파티션의 발생 이유는 아래와 같다.
+
+- 레플리카를 보유하고 있는 모든 브로커가 다운되었을 때
+- (언클린 리더 선출 기능이 꺼져 있는 상태에서) 저장된 메시지 개수가 모자라서 리더 역할을 맡을 수 있는 인-싱크 레플리카가 없을 때
+
+- 읽기 요청 지표
+
+초당 요청 수, 요청 큐에서 소요된 시간 등이 있는데, 이 값들은 브로커가 시작된 시점부터 계산된다. 오랜 시간 바뀌지 않는 지표를 볼 때는 브로커 지표를 보는 편이 낫다.
+
+최소한 초당 요청수 지표 ⭐, 전체 시간 지표의 평균값 또는 99%, 99.9%의 백분위 수를 수집하는 것이 필요하다. ⭐
+
+초당 요청 수 kafka.network:type=RequestMetrics, name=RequestsPerSec, request=Fetch
+
+전체 시간 kakfa.network:type=RequestMetrics, name=TotalTimeMs, request=Fetch
+
+### 13.3.4 토픽과 파티션별 지표
+
+토픽이나 파티션이 많은 경우 지표가 엄청나게 많을 수 있다. 특정 클라이언트에 연관된 문제를 디버깅할 때 유용할 수 있다.
+
+→ 토픽별 지표는 브로커 지표와 거의 유사하나, 토픽 이름을 지정해야한다는 차이만 있음
+
+→ 파티션별 지표는 kafUI로 충분히 확인 가능할듯함.
+
+- 같은 토픽에 해당하는 두 파티션의 크기가 다를 경우, 메시지를 쓸 때 사용되는 메시지 키가 고르게 분포되어 있지 않다는 것을 의미할 수 있으므로 참고할만함
+
+### 13.3.5 JVM 모니터링
+
+- 가비지 수집(java.lang:type=GarbageCollector, name=G1 Old Generation (풀 GC), java.lang:type=GarbageCollector, name=G1 Young Generation(영 GC))
+
+JVM 중 가장 중요한 지표
+
+나머지 자바 운영체제 모니터링 지표는 생략..
+
+### 13.3.6 운영체제 모니터링
+
+카프카 브로커는 요청을 처리하기 위해서 CPU 자원을 많이 사용하므로 CPU 활용율을 추적 관리하는 것이 중요함
+
+카프카는 상대적으로 작은 크기의 JVM heap을 사용해서 작동하기 때문에 메모리는 덜 중요함
+
+디스크가 가장 중요한 서브 시스템. 저장할 공간이 모자라는 사태가 발생하지 않도록 디스크 공간, inode(유닉스 파일 시스템에서 파일과 디렉토리에 대한 메타데이터를 담는 객체) 사용량 모두를 모니터링하는 것이 중요함. 디스크 효율성 여부인 디스크 I/O 통계 역시 모니터링 필요. 최소한 디스크의 초당 읽기 및 쓰기, 읽기 및 쓰기 큐의 평균 크기, 평균 대기시간 및 디스크 사용률(%)을 모니터링 해야함
+
+### 13.3.7 로깅
+
+카프카의 로깅 내용이 매우 많으므로 몇 개의 중요한 로그 내용은 따로 파일로 빼는게 가독성에 좋음. 주 브로커 로그 파일에 포함되지 않도록 처리해야 구분이 됨
+
+kafka.controller 로거, kafka.server.ClientQuotaManager 로거
+
+## 13.4 클라이언트 모니터링
+
+### 13.4.1 프로듀서 지표
+
+- 프로듀서 종합 지표(kafka.producer:type=producer-metrics, client-id={CLIENTID}
+
+⭐ record-error-rate 속성은 반드시 경보 설정을 해야한다. 항상 0이어야하고 그보다 크면 프로듀서가 브로커로 메시지를 보내는 와중에 누수가 발생함을 의미한다. 프로듀서는 백오프(backoff)를 해가면서 사전 설정된 수만큼 재시도를 하게 되어있는데, 만약 재시도 수가 고갈되면 메시지는 폐기된다.
+
+⭐ request-latency-avg: 브로커가 쓰기 요청을 받을 때까지 걸린 평균 시간. 정상 작동 상태에서 이 지표의 기준값을 찾은 뒤, 기준값보다 큰 값으로 문턱값을 설정하면 됨. 느려진다면 네트워크 또는 브로커 이상
+
+outgoing-byte-rate: 전송되는 메시지의 절대 크기를 초당 바이트로 표기
+
+record-send-rate: 초당 전송되는 메시지의 수
+
+request-rate: 브로커로 전달되는 쓰기 요청의 초당 수
+
+request-size-avg: 브로커로 보내지는 쓰기 요청의 평균 크기
+
+batch-size-avg: 하나의 토픽 파티션으로 보내질 메시지로 구성된 배치의 평균 크기(바이트 단위)
+
+record-size-avg: 레코드의 평균 크기
+
+records-per-request-avg: 쓰기 요청에 포함된 메시지의 평균 개수
+
+record-queue-time-avg: 메시지 전송 후 카프카 서버에 쓰여지기 전까지 프로듀서에서 대기하는 평균 시간(batch.size, linger.ms와 관련)
+
+- 브로커별, 토픽별 지표(kafka.producer:type=producer-node-metrics, client-id={CLIENTID}, nodeid=node-{BROKERID}, kafka.producer:type=producer-topic-metrics, client-id={CLIENTID}, topic={TOPICNAME})
+
+지속적으로 살펴볼 지표가 아니고 디버깅할 때만 유용할 수 있음.
+
+record-send-rate와 record-error-rate를 특정 토픽에 대해 지정해서 보면 어느 토픽에서 메시지 누수가 발생했는지 찾아내거나 전체 토픽에 대해 누수된 메시지가 있는지 검증할 때 사용할 수 있음
+
+### 13.4.2 컨슈머 지표
+
+프로듀서 클라이언트와는 달리 컨슈머 지표들은 살펴보기에는 유용할 수 있으나, 경보를 설정하기에는 그다지 유용하지 않음
+
+- 읽기 매니저 지표(kafka.consumer:type=consumer-fetch-manager-metrics, client-id={CLIENTID})
+
+bytes-consumed-rate, records-consumed-rate와 같이 컨슈머가 얼마나 많은 메시지 트래픽을 처리 중인지 볼 수 있는 지표가 있다. 그러나 문턱값을 설정해서 경보를 주면 안된다. 프로듀서가 제대로 작동하지 않는 경우에도 경보가 울려서 프로듀서 잘못인데 마치 컨슈머에 이상이 있는 것처럼 표시될 수도 있기 때문이다.
+
+- 브로커별, 토픽별 지표(kafka.consumer:type=consumer-fetch-manager-metrics, client-id={CLIENTID}, topic={TOPICNAME}, kafka.consumer:type=consumer-node-metrics, client-id={CLIENTID}, nodeid={node-BROKERID})
+
+특정 브로커나 토픽별 지표는 프로듀서와 마찬가지로 디버깅 할 때 유용할 수 있음. bytes-consumed-rate, records-consumed-rate, fetch-size-avg
+
+- 컨슈머 코디네이터 지표(kafka.consumer:type=consumer-coordinator-metrics,client-id={CLIENTID})
+
+그룹 멤버 합류, 그룹 멤버십 유지를 위한 하트비트 메시지 전송 등을 코디네이터가 관리함.
+
+sync-time-avg, sync-rate: 동기화 작업에 들어가는 평균 시간, 초당 그룹 동기화 수를 보여줌. 컨슈머 그룹이 안정적일 경우 이 값은 대부분의 시간 동안 0
+
+commit-latency-avg: 오프셋 커밋에 걸린 평균 시간을 보여줌. 정상값을 기준으로 문턱값을 설정하여 경보 처리
+
+assigned-partitions: 특정 컨슈머 클라이언트에게 할당된 파티션의 개수. 그룹 전체에서 부하가 고르게 분배되었는지를 살펴볼 수 있는 지표다.
+
+### 13.4.3 쿼터
+
+프로듀서, 컨슈머 양쪽 모두에 해당하며, 하나의 클라이언트가 전체 클러스터를 독점하는 것을 방지하기 위해서 클라이언트의 요청을 스로틀링한다. 카프카 브로커가 따로 에러 코드를 쓰거나 하지 않기 때문에 이 값들을 모니터링 해야만 쓰로틀링 여부와 정도를 파악할 수 있다.
+
+컨슈머(kafka.consumer:type=consumer-fetch-manager-metrics, client-id={CLIENTID}, fetch-throttle-time-avg),
+
+프로듀서(kafka.producer:type=producer-metrics, client-id={CLIENTID}, producethrottle-time-avg)
+
+## 13.5 랙 모니터링
+
+컨슈머 클라이언트에 랙 지표가 있지만, 가장 지연이 심한 하나의 파티션만 나타내기 때문에 컨슈머가 얼마나 뒤처져 있는지 정확하게 보여주지 않는다. 따라서 외부 모니터링을 사용하는 것을 강력하게 권장한다.
+
+버로우(burrow)는 클러스터 내 모든 컨슈머 그룹의 랙 정보를 가져온 뒤 각 그룹이 제대로 동작하는지 등을 계산해서 보여준다. 다중 클러스터 환경에서도 쉬운 방법이 될 수 있으며 이미 사용 중인 모니터링 및 경보 시스템과 연동하기도 쉽다.
+
+## 13.6 종단 모니터링
+
+컨슈머와 프로듀서 클라이언트는 지표를 갖고는 있지만 어떤 문제인지를 알려주지는 않는다. 지연 증가의 원인이 무엇인지, 클라이언트 탓인지, 네트워크 탓인지 등을 정확히 알 수 없다. 이를 판단하려면 모든 토픽에 대해 개별적으로 모니터링이 필요할 수 있다. 이렇게 하려면 모든 토픽에 관리용 트래픽을 밀어 넣어야하는데, 합리적이지 않다. 따라서 최소한 클러스터 안의 모든 브로커에 대해 관리용 트래픽을 밀어넣어서 메시지를 읽거나 쓸 수 있는지 여부를 확인할 수 있는데, 이 툴이 Xinfra Monitor(구 kafka Monitor)이다. 클러스터의 모든 브로커에 걸쳐있는 토픽들에 대해서 계속해서 데이터를 쓰고 읽어서 브로커별 모니터링을 수행한다.
