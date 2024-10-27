@@ -10,7 +10,8 @@
 
 busybox 이미지는 echo, ls, gzip 등과 같은 표준 UNIX 명령줄 도구들을 합쳐놓은 단일 실행 파일이다.
 
-![image.png](https://prod-files-secure.s3.us-west-2.amazonaws.com/fbf82d43-89c8-4d71-97d9-bd3af84b398d/410a76b2-2d7a-413d-9a9a-370a836dfb44/image.png)
+![image](https://github.com/user-attachments/assets/d8548e35-af44-4452-84ad-6f5e0fd8b50d)
+
 
 **호스트 이름** ⭐
 
@@ -20,11 +21,13 @@ busybox 이미지는 echo, ls, gzip 등과 같은 표준 UNIX 명령줄 도구�
 
 도커 클라이언트가 디렉터리의 컨텐츠를 데몬에 업로드한다. 리눅스가 아닌 OS에서는 도커 클라이언트는 호스트 OS에 위치하고 데몬은 가상머신 내부에서 실행된다.
 
-![image.png](https://prod-files-secure.s3.us-west-2.amazonaws.com/fbf82d43-89c8-4d71-97d9-bd3af84b398d/26afddd9-b1b1-4e93-bec8-18f1ec26b79d/image.png)
+![image](https://github.com/user-attachments/assets/aac479a1-801a-4d57-a594-bfd9f3e6d3a1)
+
 
 쿠버네티스 기초 다지기 책에서 발췌한 도커 이미지 레이어 생성 방식. 레이어들을 기반으로 쌓이는 구조이고, 쓰기 가능한 레이어가 마치 케이크의 프로스팅처럼 위에 쌓인다고 기억하면 기억이 잘 된다.
 
-![image.png](https://prod-files-secure.s3.us-west-2.amazonaws.com/fbf82d43-89c8-4d71-97d9-bd3af84b398d/9fcdfca5-e767-431c-9557-16ca0ff1d5b9/image.png)
+![image](https://github.com/user-attachments/assets/19e4f216-f21b-4c33-9ef5-506e22320eb9)
+
 
 ## 2.2 설치
 
@@ -71,7 +74,8 @@ $ sudo vi ~/.bashrc # bash shell 내용에 추가
 - 같은 워커 노드에서 같은 리눅스 네임스페이스로 실행되는 컨테이너 그룹
 - 자체 IP, 호스트 이름, 프로세스 등이 있음
 
-![image.png](https://prod-files-secure.s3.us-west-2.amazonaws.com/fbf82d43-89c8-4d71-97d9-bd3af84b398d/543b1fc7-7ef1-42e1-a610-96a7dcc311ed/image.png)
+![image](https://github.com/user-attachments/assets/fed0d727-e18c-4040-a5ee-0208107d26a8)
+
 
 **아래 명령어를 통해 pod 정보 조회 가능**
 
@@ -87,7 +91,8 @@ $ sudo vi ~/.bashrc # bash shell 내용에 추가
 4. 해당 워커 노드의 kubelet은 스케줄링 신호를 받고, 이미지가 로컬에 없는 경우 레지스트리에서 풀
 5. 도커가 이미지를 통해 컨테이너 실행
 
-![image.png](https://prod-files-secure.s3.us-west-2.amazonaws.com/fbf82d43-89c8-4d71-97d9-bd3af84b398d/7bb83a72-654b-4275-a7ef-c3e6ca782aad/image.png)
+![image](https://github.com/user-attachments/assets/5f8cbdd4-9217-4da9-b254-eaf121525c31)
+
 
 ### 2.3.2 웹 애플리케이션에 접근하기
 
@@ -101,7 +106,8 @@ $ sudo vi ~/.bashrc # bash shell 내용에 추가
 > $ kubectl get svc(services)
 > 
 
-![image.png](https://prod-files-secure.s3.us-west-2.amazonaws.com/fbf82d43-89c8-4d71-97d9-bd3af84b398d/29f3e665-5570-4d8a-9e5c-623a0cb0824c/image.png)
+![image](https://github.com/user-attachments/assets/52a4cf5b-f241-4ef2-b6f0-cd28045028f7)
+
 
 external ip와 port 정보를 통해 curl 요청을 보낼 수 있음
 
@@ -109,7 +115,9 @@ external ip와 port 정보를 통해 curl 요청을 보낼 수 있음
 
 사용자가 pod를 직접 생성하는게 아니고 rc가 pod를 생성. rc가 파드를 복제하고 항상 실행 상태로 만드는 주체이다. 만약 파드가 사라졌다면 rc는 사라진 파드를 대체하기 위해 새로운 파드를 생성함
 
-![image.png](https://prod-files-secure.s3.us-west-2.amazonaws.com/fbf82d43-89c8-4d71-97d9-bd3af84b398d/57c71117-426f-4d7b-b9d5-d764d5606453/image.png)
+![image](https://github.com/user-attachments/assets/6bee3ab8-94ba-4d56-ad3a-da2375696fe9)
+
+
 
 **서비스 필요성**
 
@@ -127,7 +135,8 @@ DESIRED, CURRENT로 표기됨
 > kubectl get replicationcontrollers
 > 
 
-![image.png](https://prod-files-secure.s3.us-west-2.amazonaws.com/fbf82d43-89c8-4d71-97d9-bd3af84b398d/4de1003b-d912-4f55-a930-35352e2b7639/image.png)
+![image](https://github.com/user-attachments/assets/6278cb8a-1808-4198-b4a4-4d89cb832a70)
+
 
 레플리카 수 늘리기
 
@@ -150,4 +159,6 @@ DESIRED, CURRENT로 표기됨
 
 GKE, Minikube에서의 dashboard를 소개함. 경환님이 알려준 k9s도 있음
 
-![image.png](https://prod-files-secure.s3.us-west-2.amazonaws.com/fbf82d43-89c8-4d71-97d9-bd3af84b398d/f609af65-f258-483b-ab7a-5d0192640d41/image.png)
+![image](https://github.com/user-attachments/assets/94ad0c67-2e1a-4c3e-840f-7abb38584205)
+
+
