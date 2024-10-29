@@ -24,7 +24,8 @@
     * 같은 IP 주소 포트 공간을 공유
       * 동일한 파드 안 컨테이너에서 실행중인 프로세스틑 포트는 달라야함!
     * 동일한 호스트 이름을 공유
-  * IPC(Inter-Process Communication) 네임스페이스를 통해 서로 통신가능 (메시지 큐, ...)
+  * IPC(Inter-Process Communication) 네임스페이스를 통해 서로 통신가능 (메시지 큐, 메모리 공유...)
+    <img width="801" alt="image" src="https://github.com/user-attachments/assets/d72e19f0-746b-4cdf-9a4a-c1b0856535fc">
   * 동일한 PID 네임스페이스도 공유할 수 있지만 기본 설정은 아님
 #### 파일 시스템 분리
   * 컨테이너는 고유의 파일 시스템을 가지지만 k8s 볼륨을 활용해 파일 디렉터리를 공유 가능
@@ -33,7 +34,7 @@
   * 클러스터 내의 모든 파드는 하나의 플랫한 공유 네트워크 주소 공간에 상주
     * 모든 파드는 다른 파드의 IP 주소를 사용해 접근 가능
   * NAT 없이 통신
-    * 파드 간 통신에는 NAT가 필요하지 않으며, 파드가 서로 다른 워커 노드에 있더라도 NAT 없는 플랫 네트워크에서 직접 통신 가능.
+    * 파드 간 통신에는 NAT가 필요하지 않으며, 파드가 서로 다른 워커 노드에 있더라도 NAT 없이 플랫 네트워크에서 직접 통신 가능.
      
 <img width="491" alt="image" src="https://github.com/user-attachments/assets/9527b8c8-255b-4467-b4da-848c6300c35d">    
     
@@ -182,7 +183,7 @@ pod/kubia-manual-v2 labeled
 ```
 
 ```shell
-k get po -L creation_method,env
+$ k get po -L creation_method,env
 NAME              READY   STATUS    RESTARTS   AGE     CREATION_METHOD   ENV
 kubia-manual      1/1     Running   0          31m     manual
 kubia-manual-v2   1/1     Running   0          7m46s   kubia-manual      debug
@@ -251,6 +252,8 @@ spec:
   - image: ozleejihan/kubia
     name: kubia
 ```
+
+> 이전회사에서 airflow job을 pod로 배포하는데, 이 때 medium-node, haevy-node로 구분하여 해당 노드에 배포되도록 작업
 
 ### 파드에 어노테이션 달기
 
@@ -351,7 +354,7 @@ pod "kubia-manual" deleted
 
 #### 레이블 셀렉터로 파드 삭제
 ```shell
-k delete po -l env=debug
+$ k delete po -l env=debug
 pod "kubia-manual-v2" deleted
 ```
 <img width="593" alt="image" src="https://github.com/user-attachments/assets/c450d9cf-2e2a-4400-94f2-ec794a92fb9f">
