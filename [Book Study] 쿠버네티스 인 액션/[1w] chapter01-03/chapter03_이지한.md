@@ -385,3 +385,6 @@ service "kubia-http" deleted
 $ k get pods
 No resources found in default namespace.
 ```
+
+## Ref.
+* 마르코 룩샤 저/강인호, 황주필, 이원기, 임찬식 역 (2020). Kubernetes IN ACTION
