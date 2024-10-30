@@ -389,5 +389,12 @@ $ k get pods
 No resources found in default namespace.
 ```
 
+파드의 파일 시스템은 노드의 파일 시스템과 격리됨
+물리적 용량 자체는 노드에서 따옴
+
+- 파드의 볼륨 종류는 ephemeral([에퍼머럴]), persistent volume이 있으며 ephemeral은 파드가 죽으면 날라가는 일시적인 것이고 이것이 디폴트임. persisten volume으로 설정 시 파드가 죽어도 볼륨이 유지됨
+<img width="972" alt="image" src="https://github.com/user-attachments/assets/0f98f2a6-2ad8-490e-a22e-e7d7aa0753be">
+
+
 ## Ref.
 * 마르코 룩샤 저/강인호, 황주필, 이원기, 임찬식 역 (2020). Kubernetes IN ACTION
