@@ -108,7 +108,7 @@ Containers:
 - **셀렉터 기반으로 파드 관리**:
     - ReplicationController는 특정 라벨 셀렉터를 기반으로 파드를 관리합니다. 셀렉터에 맞는 파드를 확인하여 제어 대상 파드와 일치하지 않는 파드는 관리하지 않습니다.
 
-![image.png](https://prod-files-secure.s3.us-west-2.amazonaws.com/e06cc7a3-fb76-4f29-b364-a3a59b053443/8923fa0e-b37f-4d9b-9b04-b8089417adc9/image.png)
+<img width="735" alt="image" src="https://github.com/user-attachments/assets/8b9e4787-debb-4e69-899c-3153ef628f77">
 
 - 레플리케이션 컨트롤러 정의
 
@@ -135,7 +135,7 @@ spec:
 
 - 상태 확인
 
-![image.png](https://prod-files-secure.s3.us-west-2.amazonaws.com/e06cc7a3-fb76-4f29-b364-a3a59b053443/622e610b-4457-49b1-9993-50cbc71560c7/image.png)
+<img width="759" alt="image" src="https://github.com/user-attachments/assets/39a9b432-b30c-4e19-8e65-987d01c2d431">
 
 - **노드 장애시 가능한 노드로 이동 되어 배포됨. 가용 노드가 없는경우에는 Pending 상태로 남아 있음.**
 - 레이블을 변경을 통해 관리되는 파드 또는 비관리 파드로 변경가능
@@ -145,7 +145,7 @@ spec:
     - 레이블 셀랙터가 같지 않다면 의도한 파드가 새로 생성
     - 같다면 의도한 파드 숫자만큼 만듬
 
-![image.png](https://prod-files-secure.s3.us-west-2.amazonaws.com/e06cc7a3-fb76-4f29-b364-a3a59b053443/97d82509-8478-4928-9c8a-2af7c9dad44d/image.png)
+<img width="900" alt="image" src="https://github.com/user-attachments/assets/dfd4bea9-3497-41b1-8025-5550d0f61509">
 
 - 레플리케이션컨트롤러의 피드 템플릿을 변경하면 변경 이후에 생성된 파드만 영향을 미치며 기존 파드는 영향을 받지 않는다.
 - 스케일 업 방법 커멘드 ( 에디터 방식으로 가능 )
