@@ -257,11 +257,11 @@ spec:
 
 데몬셋 배포 예시
 
-![image.png](https://prod-files-secure.s3.us-west-2.amazonaws.com/e06cc7a3-fb76-4f29-b364-a3a59b053443/ff74c522-c62d-41e1-9d8c-f36fefbfb0f5/image.png)
+<img width="705" alt="image" src="https://github.com/user-attachments/assets/cb7ea9a1-82a7-45fc-be2d-4f7e2f5557a7">
 
 노드 셀럭터를 통한 데몬셋 배포
 
-![image.png](https://prod-files-secure.s3.us-west-2.amazonaws.com/e06cc7a3-fb76-4f29-b364-a3a59b053443/31d14003-94c9-4f26-84ca-0be69f901ec3/image.png)
+<img width="709" alt="image" src="https://github.com/user-attachments/assets/cfb7091f-feb7-4c46-8e3b-26d65ab78bca">
 
 ---
 
