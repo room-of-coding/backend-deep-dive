@@ -1,1 +1,252 @@
-dd
+# ch08. 애플리케이션에서 파드 메타데이터와 그 외의 리소스 액세스
+
+## Downward API로 메타데이터 전달
+
+* Pod 내부에서 Kubernetes 리소스의 정보를 접근할 수 있게 해주는 기능
+* 환경변수 또는 파일에 파드의 스펙 또는 상태값이 채워지도록 하는 방식 (REST API 같은 엔드포인트가 아님)
+* 메타데이터
+  - 파드 이름
+  - 파드 IP
+  - 파드가 속한 네임스페이스
+  - 파드가 실행 중인 노드 이름
+  - 파드가 실행 중인 서비스 어카운트 이름
+  - 각 컨테이너의 CPU와 메모리 request/limit
+  - 파드의 레이블, 어노테이션 (볼륨으로만 노출 가능)
+<img width="562" alt="image" src="https://github.com/user-attachments/assets/7e48c233-d5c2-46d9-bf23-2bc5541b33d2">
+
+### 환경변수로 메타데이터 전달
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: downward
+spec:
+  containers:
+  - name: main
+    image: busybox
+    command: ["sleep", "9999999"]
+    resources:
+      requests:
+        cpu: 15m
+        memory: 100Ki
+      limits:
+        cpu: 100m
+        memory: 4Mi
+    env:
+    - name: POD_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.name
+    ...
+    - name: CONTAINER_CPU_REQUEST_MILLICORES
+      valueFrom:
+        resourceFieldRef:    // resourceFieldRef 사용
+          resource: requests.cpu
+          divisor: 1m        //  리소스 필드의 경우 필요한 단위의 값을 얻으려면 divisor을 정의
+```
+
+```shell
+$ k exec downward -- env          
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+HOSTNAME=downward
+CONTAINER_MEMORY_LIMIT_KIBIBYTES=4096
+POD_NAME=downward
+POD_NAMESPACE=default
+POD_IP=10.88.1.12
+NODE_NAME=gke-kubia-default-pool-a9ec92c1-pnv0
+...
+```
+
+### 파일로 메타데이터 전달
+
+* downwardAPI 볼륨을 정의해 컨테이너에 마운트
+* 레이블과 어노테이션은 파드 실행중 수정되면 쿠버네티스가 이 값을 가지고 있는 파일도 업테이트 함
+  * 환경변수로 노출될 경우 값이 변경되어도 수정할 방법이 없음
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: downward
+  labels:
+    foo: bar
+  annotations:
+    key1: value1
+    key2: |
+      multi
+      line
+      value
+spec:
+  containers:
+  - name: main
+    image: busybox
+    command: ["sleep", "9999999"]
+    ...
+    volumeMounts:
+    - name: downward
+      mountPath: /etc/downward
+  volumes:
+  - name: downward
+    downwardAPI:
+      items:
+      - path: "podName"
+        fieldRef:
+          fieldPath: metadata.name
+      ...
+      - path: "containerMemoryLimitBytes"
+        resourceFieldRef:
+          containerName: main
+          resource: limits.memory
+          divisor: 1
+```
+
+```shell
+$ k exec downward -- ls -lL /etc/downward         
+total 24
+-rw-r--r--    1 root     root          1343 Nov 10 12:23 annotations
+-rw-r--r--    1 root     root             2 Nov 10 12:23 containerCpuRequestMilliCores
+-rw-r--r--    1 root     root             7 Nov 10 12:23 containerMemoryLimitBytes
+-rw-r--r--    1 root     root             9 Nov 10 12:23 labels
+-rw-r--r--    1 root     root             8 Nov 10 12:23 podName
+-rw-r--r--    1 root     root             7 Nov 10 12:23 podNamespace
+```
+
+```shell
+$ k label pod downward foo=bor --overwrite
+pod/downward labeled
+$ k exec downward -- cat /etc/downward/labels     
+foo="bor"
+```
+   
+> Downward API의 사용법은 단순하나 사용 가능한 메타데이터가 상당히 제한적임
+
+   
+## 쿠버네티스 API 서버와 통신
+
+* 애플리케이션에서 클러스터에 정의된 다른 파드나 리소스에 관한 더 많은 정보가 필요할 수 있음
+<img width="465" alt="image" src="https://github.com/user-attachments/assets/62da928e-22aa-4e04-a2a0-268c1c998b2d">
+
+### kubectl 프록시로 API 서버 액세스
+
+* 프록시 서버를 실행해 로컬에서 HTTP 연결을 수신하고, 인증을 관리하여 API 서버로 전달함
+
+```shell
+$ k proxy
+Starting to serve on 127.0.0.1:8001
+```
+   
+```shell
+$ curl localhost:8001
+{
+  "paths": [
+    "/.well-known/openid-configuration",
+    "/api",
+    "/api/v1",
+    "/apis",
+    "/apis/",
+    "/apis/apps/v1",
+    ...
+```
+
+```shell
+$ curl localhost:8001/apis/batch/v1/jobs
+{
+  "kind": "JobList",
+  "apiVersion": "batch/v1",
+  "metadata": {
+    "resourceVersion": "3321063"
+  },
+  "items": []
+}
+```
+
+### 파드 내에서 API 서버와 통신
+
+#### 파드 실행
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: curl
+spec:
+  containers:
+  - name: main
+    image: curlimages/curl
+    command: ["sleep", "9999999"]
+```
+
+#### 서버의 아이덴티티 검증
+
+```shell
+$ k exec -it curl -- sh
+
+$ curl https://kubernetes
+curl: (60) SSL peer certificate or SSH remote key was not OK
+More details here: https://curl.se/docs/sslcerts.html
+
+curl failed to verify the legitimacy of the server and therefore could not
+establish a secure connection to it. To learn more about this situation and
+how to fix it, please visit the webpage mentioned above.
+```
+
+* 인증서 서명
+  * 7장의 시크릿에서 등장한 /var/run/secrets/kubernetes.io/serviceaccount/에 마운트 되는 default-token 시크릿 사용 (p.339)
+```shell
+$ curl --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt https://kubernetes
+{
+  "kind": "Status",
+  "apiVersion": "v1",
+  "metadata": {},
+  "status": "Failure",
+  "message": "forbidden: User \"system:anonymous\" cannot get path \"/\"",
+  "reason": "Forbidden",
+  "details": {},
+  "code": 403
+}
+
+$ export CURL_CA_BUNDLE=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+```
+
+* API 서버로 인증
+  * default-token 시크릿의 token 사용
+```shell
+$ TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+$ curl -H "Authorization: Bearer $TOKEN" https://kubernetes
+{
+  "paths": [
+    "/.well-known/openid-configuration",
+    "/api",
+    "/api/v1",
+    "/apis",
+    "/apis/",
+    ...
+  ]
+}
+```
+
+> RBAC이 활성화된 쿠버네티스 클러스터를 사용할 경우, 서비스 어카운트가 API 서버에 액세스할 권한이 없기 때문에    
+> RBAC을 우회하는 명령어 실행해야 위의 실습 가능 (p. 76)    
+> 프로덕션에서는 금지!    
+
+* 동일 네임스페이스의 모든 파드 조회하기
+  * default-token 시크릿의 namespace 사용
+```shell
+$ NS=$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace)
+$ curl -H "Authorization: Bearer $TOKEN" https://kubernetes/api/v1/namespaces/$NS/pods
+{
+  "kind": "PodList",
+  "apiVersion": "v1",
+  "metadata": {
+    "resourceVersion": "3359769"
+  },
+  "items": [
+    {
+      "metadata": {
+        "name": "curl",
+        "namespace": "default",
+...
+```
+
+* 정리
+<img width="578" alt="image" src="https://github.com/user-attachments/assets/87966b68-c319-4677-b3c4-d4e880202f70">
+
