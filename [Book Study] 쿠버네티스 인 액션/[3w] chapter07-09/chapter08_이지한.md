@@ -250,3 +250,11 @@ $ curl -H "Authorization: Bearer $TOKEN" https://kubernetes/api/v1/namespaces/$N
 * 정리
 <img width="578" alt="image" src="https://github.com/user-attachments/assets/87966b68-c319-4677-b3c4-d4e880202f70">
 
+#### 앰배서더 컨테이너를 이용한 API 통신 간소화
+
+<img width="475" alt="image" src="https://github.com/user-attachments/assets/c87540a4-74aa-4785-a21d-4224e372a68a">
+
+* 메인 컨테이너 애플리케이션 -> HTTP로 앰배서더 연결 -> 앰배서더 프록시 -> HTTPS로 API 서버 연결
+
+
+
