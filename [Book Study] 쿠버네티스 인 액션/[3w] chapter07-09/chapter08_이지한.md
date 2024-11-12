@@ -256,5 +256,120 @@ $ curl -H "Authorization: Bearer $TOKEN" https://kubernetes/api/v1/namespaces/$N
 
 * 메인 컨테이너 애플리케이션 -> HTTP로 앰배서더 연결 -> 앰배서더 프록시 -> HTTPS로 API 서버 연결
 
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: curl-with-ambassador
+spec:
+  containers:
+  - name: main
+    image: curlimages/curl
+    command: ["sleep", "9999999"]
+  - name: ambassador
+    image: luksa/kubectl-proxy:1.6.2
+```
 
+* 인증없이 잘 되는지 확인
+```shell
+$ k exec -it curl-with-ambassador -c main -- sh
+$ curl localhost:8001
+{
+  "paths": [
+    "/.well-known/openid-configuration",
+    "/api",
+    ...
+```
 
+<img width="547" alt="image" src="https://github.com/user-attachments/assets/1a4af38b-7dd7-4b34-8e11-6fda0663e975">
+* curl -> http -> 프록시 -> https -> api 서버
+* 메인 애플리케이션 언어에 상관없이 여러 애플리케이션에서 재사용이 가능
+* 단점은 추가 프로세스가 실행되며, 추가 리소스 소비
+
+#### 클라이언트 라이브러리 사용해 API 서버 통신
+
+https://kubernetes.io/docs/reference/using-api/client-libraries/
+
+```shell
+$ pip install kubernetes
+```
+
+* main.py 예제
+```python
+from kubernetes import client, config
+from time import sleep
+
+# Kubernetes 클라이언트 구성 로드 (kubeconfig 사용)
+config.load_kube_config()
+
+# Kubernetes 클라이언트 생성
+v1 = client.CoreV1Api()
+
+# 기본(default) 네임스페이스의 모든 Pod 목록 가져오기
+print("Listing pods in namespace 'default'")
+pods = v1.list_namespaced_pod(namespace="default")
+for pod in pods.items:
+    print(f"Found pod: {pod.metadata.name}")
+
+# 새로운 Pod 생성
+print("Creating a pod")
+pod_body = client.V1Pod(
+    metadata=client.V1ObjectMeta(name="programmatically-created-pod"),
+    spec=client.V1PodSpec(
+        containers=[
+            client.V1Container(
+                name="main",
+                image="busybox",
+                command=["sleep", "99999"]
+            )
+        ]
+    )
+)
+created_pod = v1.create_namespaced_pod(namespace="default", body=pod_body)
+print(f"Created pod: {created_pod.metadata.name}")
+
+# Pod 편집 (라벨 추가)
+print("Editing pod to add label foo=bar")
+patch_body = {
+    "metadata": {
+        "labels": {
+            "foo": "bar"
+        }
+    }
+}
+v1.patch_namespaced_pod(name="programmatically-created-pod", namespace="default", body=patch_body)
+print("Added label foo=bar to pod")
+
+# 1분 대기 후 Pod 삭제
+print("Waiting 1 minute before deleting pod...")
+sleep(60)
+print("Deleting the pod")
+v1.delete_namespaced_pod(name="programmatically-created-pod", namespace="default")
+print("Deleted the pod")
+```
+
+* main.py 실행
+```shell
+$ python main.py
+Listing pods in namespace 'default'
+Found pod: kubia-fcbrx
+Found pod: kubia-mdhv4
+Found pod: kubia-sk8hb
+Creating a pod
+Created pod: programmatically-created-pod
+Editing pod to add label foo=bar
+Added label foo=bar to pod
+Waiting 1 minute before deleting pod...
+Deleting the pod
+Deleted the pod
+```   
+   
+* po 조회 결과
+```shell
+$ k get po
+NAME                           READY   STATUS        RESTARTS   AGE
+kubia-fcbrx                    1/1     Running       0          11m
+kubia-mdhv4                    1/1     Running       0          11m
+kubia-sk8hb                    1/1     Running       0          11m
+programmatically-created-pod   1/1     Terminating   0          79s
+```
