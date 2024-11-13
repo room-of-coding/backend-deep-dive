@@ -248,7 +248,8 @@ $ curl -H "Authorization: Bearer $TOKEN" https://kubernetes/api/v1/namespaces/$N
 ```
 
 * 정리
-<img width="578" alt="image" src="https://github.com/user-attachments/assets/87966b68-c319-4677-b3c4-d4e880202f70">
+<img width="731" alt="image" src="https://github.com/user-attachments/assets/e0bc9d89-66fa-45a3-a4f7-4acaead4c1b1">
+
 
 #### 앰배서더 컨테이너를 이용한 API 통신 간소화
 
@@ -281,7 +282,8 @@ $ curl localhost:8001
     ...
 ```
 
-<img width="547" alt="image" src="https://github.com/user-attachments/assets/1a4af38b-7dd7-4b34-8e11-6fda0663e975">
+<img width="547" alt="image" src="https://github.com/user-attachments/assets/1a4af38b-7dd7-4b34-8e11-6fda0663e975">    
+    
 * curl -> http -> 프록시 -> https -> api 서버
 * 메인 애플리케이션 언어에 상관없이 여러 애플리케이션에서 재사용이 가능
 * 단점은 추가 프로세스가 실행되며, 추가 리소스 소비
